@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Explosion — Image Converter</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050506;
+      --surface: rgba(28, 28, 30, .72);
+      --surface-strong: #1c1c1e;
+      --line: rgba(255, 255, 255, .11);
+      --muted: #98989f;
+      --text: #f5f5f7;
+      --blue: #0a84ff;
+      --blue-bright: #2997ff;
+      --green: #32d74b;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh; margin: 0; overflow-x: hidden;
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+      letter-spacing: -.015em;
+    }
+    body::before, body::after { content: ""; position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: -1; }
+    body::before { width: 42vw; height: 42vw; top: -20vw; left: -12vw; background: rgba(24, 78, 145, .27); }
+    body::after { width: 36vw; height: 36vw; bottom: -18vw; right: -12vw; background: rgba(99, 48, 145, .19); }
+    .app { width: min(960px, calc(100% - 40px)); margin: 0 auto; padding: 25px 0 42px; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 72px; }
+    .brand { display: flex; gap: 10px; align-items: center; font-weight: 650; font-size: 17px; }
+    .brand-mark { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 9px; background: linear-gradient(135deg, #5ac8fa, #0a84ff 56%, #5e5ce6); box-shadow: 0 6px 18px rgba(10,132,255,.35); }
+    .brand-mark svg { width: 16px; }
+    .local-badge { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 7px; }
+    .local-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+    main { display: grid; justify-items: center; }
+    .hero { text-align: center; max-width: 610px; margin-bottom: 34px; }
+    h1 { margin: 0; font-size: clamp(36px, 6vw, 59px); line-height: 1.08; letter-spacing: -.055em; font-weight: 720; }
+    .hero p { color: var(--muted); font-size: 17px; line-height: 1.5; margin: 18px auto 0; }
+    .drop-zone { width: 100%; max-width: 780px; min-height: 325px; padding: 25px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 25px; background: linear-gradient(145deg, rgba(40,40,43,.78), rgba(20,20,22,.68)); box-shadow: inset 0 1px rgba(255,255,255,.08), 0 28px 60px rgba(0,0,0,.3); cursor: pointer; transition: .25s ease; }
+    .drop-zone:hover, .drop-zone.dragging { border-color: rgba(41,151,255,.8); background: linear-gradient(145deg, rgba(27,58,92,.86), rgba(20,29,40,.82)); transform: translateY(-2px); box-shadow: inset 0 1px rgba(255,255,255,.12), 0 20px 55px rgba(10,132,255,.14); }
+    .drop-content { text-align: center; }
+    .upload-icon { display: grid; place-items: center; width: 68px; height: 68px; margin: 0 auto 19px; border: 1px solid rgba(255,255,255,.13); border-radius: 21px; color: var(--blue-bright); background: rgba(10,132,255,.13); box-shadow: 0 12px 28px rgba(0,0,0,.18); }
+    .upload-icon svg { width: 31px; height: 31px; }
+    .drop-content strong { display: block; font-size: 20px; font-weight: 600; }
+    .drop-content span { display: block; margin-top: 8px; color: var(--muted); font-size: 14px; }
+    .browse { color: var(--blue-bright); text-decoration: underline; text-underline-offset: 3px; }
+    .formats { margin-top: 26px; color: #74747c; font-size: 12px; letter-spacing: .02em; }
+    input[type=file] { display: none; }
+    .workspace { width: 100%; max-width: 780px; display: none; grid-template-columns: 1.08fr .92fr; gap: 16px; margin-top: 20px; }
+    .workspace.active { display: grid; }
+    .panel { border: 1px solid var(--line); border-radius: 22px; background: var(--surface); backdrop-filter: blur(18px); overflow: hidden; }
+    .preview { min-height: 370px; display: grid; place-items: center; padding: 22px; background-color: #151517; background-image: linear-gradient(45deg, #1d1d20 25%, transparent 25%), linear-gradient(-45deg, #1d1d20 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1d1d20 75%), linear-gradient(-45deg, transparent 75%, #1d1d20 75%); background-size: 22px 22px; background-position: 0 0, 0 11px, 11px -11px, -11px 0px; }
+    .preview img { max-width: 100%; max-height: 325px; object-fit: contain; border-radius: 8px; box-shadow: 0 14px 30px rgba(0,0,0,.38); }
+    .file-info { padding: 15px 17px; border-top: 1px solid var(--line); }
+    .filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 550; }
+    .file-meta { margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .settings { padding: 21px; }
+    .settings h2 { font-size: 16px; margin: 0 0 20px; letter-spacing: -.02em; }
+    label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+    select, input[type=range] { width: 100%; }
+    select { appearance: none; color: var(--text); border: 1px solid var(--line); border-radius: 11px; padding: 12px 38px 12px 13px; outline: none; background: #2c2c2e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2398989f' stroke-width='1.7'%3E%3Cpath d='m3 5 4 4 4-4'/%3E%3C/svg%3E") no-repeat right 13px center; font: inherit; font-size: 14px; }
+    select:focus { border-color: var(--blue); }
+    .setting-row { margin-bottom: 20px; }
+    .range-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    output { color: var(--text); font-size: 12px; font-variant-numeric: tabular-nums; }
+    input[type=range] { accent-color: var(--blue); }
+    .notice { display: none; padding: 10px 12px; border-radius: 10px; background: rgba(255, 159, 10, .12); color: #ffb340; font-size: 12px; line-height: 1.4; margin: -4px 0 17px; }
+    .convert { width: 100%; padding: 13px 16px; border: 0; border-radius: 12px; cursor: pointer; color: white; background: linear-gradient(180deg, #2997ff, #0076e6); box-shadow: 0 7px 18px rgba(10,132,255,.28), inset 0 1px rgba(255,255,255,.25); font: inherit; font-size: 15px; font-weight: 600; transition: transform .15s, filter .15s; }
+    .convert:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .convert:active { transform: translateY(1px); }
+    .convert:disabled { opacity: .6; cursor: wait; }
+    .reset { width: 100%; border: 0; background: transparent; color: var(--muted); margin-top: 15px; padding: 5px; cursor: pointer; font: inherit; font-size: 12px; }
+    .reset:hover { color: var(--text); }
+    .privacy { margin: 28px 0 0; color: #74747c; text-align: center; font-size: 12px; }
+    .privacy strong { color: #a5a5ac; font-weight: 550; }
+    .copyright { margin: 12px 0 0; color: #62626a; text-align: center; font-size: 12px; }
+    .site-note { max-width: 520px; margin: 9px auto 0; color: #62626a; text-align: center; font-size: 11px; line-height: 1.5; }
+    .success-toast { position: fixed; z-index: 10; top: 50%; left: 50%; padding: 19px 27px; border: 1px solid rgba(90, 200, 250, .48); border-radius: 18px; color: #fff; background: rgba(28, 28, 30, .92); box-shadow: 0 18px 55px rgba(0, 0, 0, .45), 0 0 42px rgba(10, 132, 255, .24); backdrop-filter: blur(18px); font-size: 22px; font-weight: 650; letter-spacing: -.04em; opacity: 0; pointer-events: none; transform: translate(-50%, -42%) scale(.92); transition: opacity .24s ease, transform .24s ease; }
+    .success-toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    @media (max-width: 650px) { header { margin-bottom: 52px; } .workspace.active { grid-template-columns: 1fr; } .drop-zone { min-height: 290px; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M5 7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 16.5z"/><circle cx="12" cy="12" r="3"/></svg></span>Pixel Explosion</div>
+      <div class="local-badge">完全ローカル処理</div>
+    </header>
+    <main>
+      <section class="hero">
+        <h1>画像変換ツール</h1>
+        <p>ブラウザだけで完結するシンプルなのにやかましい画像変換ツール！<br>あなたの画像はサーバーに送信されませんし、まずそんな技術力を持ち合わせていません。</p>
+      </section>
+      <label class="drop-zone" id="dropZone" for="fileInput">
+        <div class="drop-content">
+          <div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 14.5v3A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5v-3"/></svg></div>
+          <strong>ここに　画像　ﾎﾟｲｯ★</strong>
+          <span>または <span class="browse">クリックで画像選択できるYO</span></span>
+          <div class="formats">JPG · PNG · WebP · GIF · BMP · AVIF など</div>
+        </div>
+      </label>
+      <input id="fileInput" type="file" accept="image/*" />
+
+      <section class="workspace" id="workspace">
+        <div class="panel"><div class="preview"><img id="previewImage" alt="選択した画像のプレビュー"></div><div class="file-info"><div class="filename" id="filename"></div><div class="file-meta" id="filemeta"></div></div></div>
+        <div class="panel settings">
+          <h2>変換の設定</h2>
+          <div class="setting-row"><label for="format">出力フォーマット</label><select id="format"><option value="image/webp">WebP</option><option value="image/jpeg">JPEG</option><option value="image/png">PNG</option><option value="image/x-icon">ICO（256 × 256）</option></select></div>
+          <div class="setting-row" id="qualityGroup"><div class="range-row"><label for="quality">画質</label><output id="qualityValue">90%</output></div><input id="quality" type="range" min="10" max="100" value="90"></div>
+          <div class="notice" id="pngNotice">PNG は可逆形式のため、画質設定は適用されません。</div>
+          <button class="convert" id="convert">変換！！</button>
+          <button class="reset" id="reset">別の画像を選ぶ</button>
+        </div>
+      </section>
+      <p class="privacy"><strong>プライバシーを最優先に。</strong> すべての処理はこのデバイス内で行われます。</p>
+      <p class="copyright">©2026　Kくんの部屋 Channel. All Rights Reserved</p>
+      <p class="site-note">（※このサイトは元々シンプルに作る予定でしたがチャンネル的に考えた結果シンプルを50％削減しました）</p>
+    </main>
+  </div>
+  <div class="success-toast" id="successToast" role="status" aria-live="polite">持ってけ画像！！</div>
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const input = document.getElementById('fileInput');
+    const workspace = document.getElementById('workspace');
+    const preview = document.getElementById('previewImage');
+    const format = document.getElementById('format');
+    const quality = document.getElementById('quality');
+    const qualityValue = document.getElementById('qualityValue');
+    const pngNotice = document.getElementById('pngNotice');
+    const convert = document.getElementById('convert');
+    const successToast = document.getElementById('successToast');
+    let selectedFile, imageUrl;
+    let toastTimer;
+
+    const bytes = n => n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(2)} MB`;
+    function loadFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      selectedFile = file;
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+      imageUrl = URL.createObjectURL(file);
+      preview.onload = () => { document.getElementById('filemeta').textContent = `${preview.naturalWidth} × ${preview.naturalHeight} px  •  ${bytes(file.size)}`; };
+      preview.src = imageUrl;
+      document.getElementById('filename').textContent = file.name;
+      dropZone.style.display = 'none'; workspace.classList.add('active');
+    }
+    ['dragenter','dragover'].forEach(event => dropZone.addEventListener(event, e => { e.preventDefault(); dropZone.classList.add('dragging'); }));
+    ['dragleave','drop'].forEach(event => dropZone.addEventListener(event, e => { e.preventDefault(); dropZone.classList.remove('dragging'); }));
+    dropZone.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+    input.addEventListener('change', e => loadFile(e.target.files[0]));
+    quality.addEventListener('input', () => qualityValue.value = `${quality.value}%`);
+    format.addEventListener('change', () => {
+      const lossless = format.value === 'image/png' || format.value === 'image/x-icon';
+      pngNotice.textContent = format.value === 'image/x-icon'
+        ? 'ICO は 256 × 256 px のPNGを内包して保存します。画質設定は適用されません。'
+        : 'PNG は可逆形式のため、画質設定は適用されません。';
+      pngNotice.style.display = lossless ? 'block' : 'none';
+      document.getElementById('qualityGroup').style.opacity = lossless ? '.42' : '1';
+    });
+
+    // ICOコンテナに256px PNGを格納する。ヘッダーをDataViewでリトルエンディアンに書き込む。
+    function encodeIco(pngBlob) {
+      const header = new ArrayBuffer(22); // ICONDIR (6) + ICONDIRENTRY (16)
+      const view = new DataView(header);
+      view.setUint16(0, 0, true);   // reserved
+      view.setUint16(2, 1, true);   // type: icon
+      view.setUint16(4, 1, true);   // image count
+      view.setUint8(6, 0);          // width: 0 は ICO で 256px を表す
+      view.setUint8(7, 0);          // height: 0 は ICO で 256px を表す
+      view.setUint8(8, 0);          // color palette count
+      view.setUint8(9, 0);          // reserved
+      view.setUint16(10, 1, true);  // color planes
+      view.setUint16(12, 32, true); // bits per pixel
+      view.setUint32(14, pngBlob.size, true);
+      view.setUint32(18, 22, true); // image data offset
+      return new Blob([header, pngBlob], { type: 'image/x-icon' });
+    }
+
+    function downloadBlob(blob, extension) {
+      const name = selectedFile.name.replace(/\.[^.]+$/, '') || 'image';
+      const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${name}.${extension}`; link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      convert.disabled = false; convert.textContent = '変換！！';
+      clearTimeout(toastTimer); successToast.classList.add('show');
+      toastTimer = setTimeout(() => successToast.classList.remove('show'), 2200);
+    }
+    convert.addEventListener('click', () => {
+      if (!selectedFile) return;
+      convert.disabled = true; convert.textContent = '変換中…';
+      const image = new Image();
+      image.onload = () => {
+        const isIco = format.value === 'image/x-icon';
+        const canvas = document.createElement('canvas');
+        canvas.width = isIco ? 256 : image.naturalWidth; canvas.height = isIco ? 256 : image.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (format.value === 'image/jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          if (!blob) { alert('このブラウザでは選択した形式に変換できません。'); convert.disabled = false; convert.textContent = '変換！！'; return; }
+          downloadBlob(isIco ? encodeIco(blob) : blob, isIco ? 'ico' : format.value.split('/')[1]);
+        }, isIco ? 'image/png' : format.value, Number(quality.value) / 100);
+      };
+      image.onerror = () => { alert('画像を読み込めませんでした。'); convert.disabled = false; convert.textContent = '変換！！'; };
+      image.src = imageUrl;
+    });
+    document.getElementById('reset').addEventListener('click', () => { workspace.classList.remove('active'); dropZone.style.display = 'grid'; input.value = ''; preview.removeAttribute('src'); selectedFile = null; });
+  </script>
+</body>
+</html>
